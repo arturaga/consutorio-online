@@ -12,6 +12,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+<!-- SDK do Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
 /* ==========================================================================
    VARIÁVEIS DE TEMA — PALETA SUAVE PARA CLÍNICA
@@ -1166,7 +1169,7 @@ tbody tr:hover{ background: var(--surface-2); }
     </form>
 
     <div class="auth-footnote">
-      🔒 Suas credenciais ficam apenas neste navegador. A senha é armazenada como hash (SHA-256), nunca em texto puro.
+      🔒 Suas credenciais são protegidas pelo Supabase com hash profissional. A senha nunca é armazenada em texto puro.
     </div>
   </div>
 </div>
@@ -1200,7 +1203,7 @@ tbody tr:hover{ background: var(--surface-2); }
     </form>
 
     <div class="auth-footnote">
-      Esqueceu a senha? Como o sistema funciona apenas localmente, peça a outro usuário cadastrado para redefini-la em Configurações.
+      Esqueceu a senha? Acesse o painel do Supabase para redefini-la, ou peça a outro usuário com acesso de admin.
     </div>
   </div>
 </div>
@@ -1260,8 +1263,8 @@ tbody tr:hover{ background: var(--surface-2); }
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
         Sair
       </button>
-      <strong>🔒 Dados locais</strong>
-      Tudo é salvo apenas neste navegador. Faça backups regulares em <em>Configurações</em>.
+      <strong>☁ Dados na nuvem</strong>
+      Seus dados estão salvos com segurança no Supabase.
     </div>
   </aside>
 
@@ -1468,7 +1471,7 @@ tbody tr:hover{ background: var(--surface-2); }
       </div>
 
       <div class="warning-box">
-        <strong>🔒 Importante sobre seus dados:</strong> Tudo o que você cadastra aqui (pacientes, consultas, históricos, pagamentos, fotos) fica armazenado <strong>somente no seu navegador</strong>, no próprio computador. Nada é enviado para a internet. Se o navegador for limpo, reinstalado ou usado em modo anônimo, os dados podem ser perdidos. <strong>Faça backups frequentes</strong> através da aba <em>Configurações</em>.
+        <strong>☁ Seus dados na nuvem:</strong> Tudo o que você cadastra (pacientes, consultas, históricos, pagamentos, fotos) fica guardado no <strong>Supabase</strong>, vinculado à sua conta. Você pode acessar de qualquer dispositivo com sua URL e credenciais. Mesmo assim, recomenda-se fazer <strong>backups frequentes</strong> através da aba <em>Configurações</em>.
       </div>
 
       <div class="instructions-grid">
@@ -1603,11 +1606,10 @@ tbody tr:hover{ background: var(--surface-2); }
           </div>
           <h4>Privacidade dos dados</h4>
           <ul>
-            <li>Os dados ficam <strong>apenas neste navegador</strong>, usando o recurso localStorage.</li>
-            <li>Nada é enviado a servidores externos. Não há login na nuvem.</li>
-            <li>Você acessa por meio de <strong>usuários cadastrados</strong> — as senhas ficam guardadas como hash SHA-256, nunca em texto puro.</li>
-            <li>Se você limpar o histórico do navegador, usar modo anônimo ou trocar de máquina, os dados <strong>não estarão lá</strong>.</li>
-            <li>Por isso, faça <strong>backups frequentes</strong> usando o botão de exportação.</li>
+            <li>Os dados ficam <strong>na nuvem (Supabase)</strong>, vinculados à sua conta.</li>
+            <li>Você acessa por meio de <strong>usuários autorizados</strong>. As senhas ficam protegidas com hash profissional pelo servidor.</li>
+            <li>Pode acessar de qualquer dispositivo com sua URL e suas credenciais.</li>
+            <li>Mesmo assim, faça <strong>backups frequentes</strong> usando o botão de exportação.</li>
           </ul>
         </div>
 
@@ -1624,7 +1626,7 @@ tbody tr:hover{ background: var(--surface-2); }
       </div>
 
       <div class="warning-box">
-        <strong>⚠ Atenção · Privacidade:</strong> Este aplicativo salva todos os dados <strong>apenas no seu navegador</strong> (localStorage). Eles não são enviados para nenhum servidor. Se o navegador for limpo, reinstalado ou usado em modo anônimo, os dados podem ser perdidos. <strong>Faça backups frequentes</strong> usando o botão <em>Exportar</em> abaixo.
+        <strong>☁ Dados na nuvem:</strong> Este aplicativo agora salva todos os dados no <strong>Supabase</strong> (nuvem segura). Você pode acessar de qualquer dispositivo com suas credenciais. Mesmo assim, é recomendado fazer <strong>backups frequentes</strong> usando o botão <em>Exportar</em> abaixo.
       </div>
 
       <div class="settings-block">
@@ -1727,11 +1729,18 @@ tbody tr:hover{ background: var(--surface-2); }
 
 <script>
 /* ==========================================================================
-   APP — SECRETÁRIA DIGITAL · LÓGICA EM JS PURO
+   APP — CONSULTÓRIO · MIGRADO PARA SUPABASE (NUVEM)
    --------------------------------------------------------------------------
-   Toda a persistência é feita via localStorage (chave: "psy_app_v1").
-   Nada sai do navegador.
+   Os dados agora ficam no banco Postgres do Supabase. O localStorage só
+   é usado para a sessão (token de login).
    ========================================================================== */
+
+// ===== CREDENCIAIS SUPABASE (públicas — anon key é segura no front) =====
+const SUPABASE_URL = 'https://nmbgcenxbsmxpsjogbmb.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tYmdjZW54YnNteHBzam9nYm1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4Njk0OTUsImV4cCI6MjA5NDQ0NTQ5NX0.z5z4egfCWQdnZsTYhzznB6a7QjhCyzvmrhpVsWKqk0w';
+
+// Cliente Supabase criado uma vez e usado em todo o app
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Exibe erros JS na tela (útil quando o usuário não consegue abrir o console)
 window.addEventListener('error', function(e){
@@ -1742,47 +1751,174 @@ window.addEventListener('error', function(e){
 });
 
 /* ------------------------------ Estado ----------------------------------- */
-const STORAGE_KEY = 'psy_app_v1';
-const SESSION_KEY = 'psy_session_user_id';
-
-/** @type {{
- *   patients:   Array<Object>,
- *   appointments: Array<Object>,
- *   historico:  Array<Object>,
- *   payments:   Array<Object>,
- *   settings:   Object,
- *   users:      Array<Object>
- * }} */
+/**
+ * DB serve agora como CACHE LOCAL EM MEMÓRIA dos dados do Supabase.
+ * - É recarregado do servidor após o login (fetchAll)
+ * - É mantido sincronizado: a cada save/delete, atualizamos o cache E o Supabase
+ * - As funções de UI (render*) continuam consumindo DB como antes
+ */
 let DB = {
   patients: [],
   appointments: [],
   historico: [],
   payments: [],
   settings: { clinicName: 'Consultório', clinicLogo: null },
-  users: [],
 };
 
-/** Usuário atualmente logado (objeto referenciando DB.users) */
+/** Usuário atualmente logado (objeto retornado pelo Supabase Auth) */
 let currentUser = null;
 
-/** Carrega dados do localStorage, com fallback seguro. */
-function loadDB(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      DB = Object.assign(DB, parsed);
-    }
-  }catch(e){
-    console.warn('Falha ao ler dados locais:', e);
+/* ==========================================================================
+   CAMADA DE DADOS — SUPABASE
+   --------------------------------------------------------------------------
+   Funções que conversam com o banco. Convertem snake_case (BD) <-> camelCase
+   (app) para minimizar mudanças no resto do código.
+   ========================================================================== */
+
+/** Converte um paciente vindo do banco para o formato esperado pelo app. */
+function patientFromDB(row){
+  if(!row) return null;
+  return {
+    id: row.id,
+    nome: row.nome,
+    telefone: row.telefone,
+    email: row.email,
+    dataNascimento: row.data_nascimento,
+    cpf: row.cpf,
+    endereco: row.endereco,
+    observacoes: row.observacoes,
+    status: row.status,
+    valorConsulta: row.valor_consulta,
+    foto: row.foto,
+    comoConheceu: row.como_conheceu,
+    accessToken: row.access_token,
+  };
+}
+
+/** Converte do formato do app para o banco. */
+function patientToDB(p){
+  return {
+    nome: p.nome,
+    telefone: p.telefone || null,
+    email: p.email || null,
+    data_nascimento: p.dataNascimento || null,
+    cpf: p.cpf || null,
+    endereco: p.endereco || null,
+    observacoes: p.observacoes || null,
+    status: p.status || 'ativo',
+    valor_consulta: p.valorConsulta ?? null,
+    foto: p.foto || null,
+    como_conheceu: p.comoConheceu || null,
+  };
+}
+
+function appointmentFromDB(row){
+  return {
+    id: row.id,
+    pacienteId: row.patient_id,
+    data: row.data,
+    horario: row.horario ? row.horario.slice(0,5) : '', // "HH:MM:SS" -> "HH:MM"
+    tipo: row.tipo,
+    valor: row.valor,
+    status: row.status,
+    observacoes: row.observacoes,
+  };
+}
+function appointmentToDB(a){
+  return {
+    patient_id: a.pacienteId,
+    data: a.data,
+    horario: a.horario,
+    tipo: a.tipo,
+    valor: a.valor ?? null,
+    status: a.status,
+    observacoes: a.observacoes || null,
+  };
+}
+
+function recordFromDB(row){
+  return {
+    id: row.id,
+    pacienteId: row.patient_id,
+    data: row.data,
+    resumo: row.resumo,
+    condutas: row.condutas,
+    observacoesInternas: row.observacoes_internas,
+    proximaConduta: row.proxima_conduta,
+  };
+}
+function recordToDB(h){
+  return {
+    patient_id: h.pacienteId,
+    data: h.data,
+    resumo: h.resumo || null,
+    condutas: h.condutas || null,
+    observacoes_internas: h.observacoesInternas || null,
+    proxima_conduta: h.proximaConduta || null,
+  };
+}
+
+function paymentFromDB(row){
+  return {
+    id: row.id,
+    pacienteId: row.patient_id,
+    data: row.data,
+    valor: row.valor,
+    forma: row.forma,
+    status: row.status,
+    observacoes: row.observacoes,
+  };
+}
+function paymentToDB(p){
+  return {
+    patient_id: p.pacienteId,
+    data: p.data,
+    valor: Number(p.valor),
+    forma: p.forma,
+    status: p.status,
+    observacoes: p.observacoes || null,
+  };
+}
+
+/**
+ * Carrega TODOS os dados do usuário logado do Supabase para o cache local (DB).
+ * Chamada após login bem-sucedido.
+ */
+async function fetchAll(){
+  if(!currentUser) return;
+
+  // Roda as queries em paralelo para acelerar
+  const [pats, appts, recs, pays, sets] = await Promise.all([
+    sb.from('patients').select('*').order('nome'),
+    sb.from('appointments').select('*').order('data').order('horario'),
+    sb.from('clinical_records').select('*').order('data', { ascending: false }),
+    sb.from('payments').select('*').order('data', { ascending: false }),
+    sb.from('settings').select('*').eq('owner_id', currentUser.id).maybeSingle(),
+  ]);
+
+  if(pats.error)  throw pats.error;
+  if(appts.error) throw appts.error;
+  if(recs.error)  throw recs.error;
+  if(pays.error)  throw pays.error;
+  if(sets.error)  throw sets.error;
+
+  DB.patients     = (pats.data  || []).map(patientFromDB);
+  DB.appointments = (appts.data || []).map(appointmentFromDB);
+  DB.historico    = (recs.data  || []).map(recordFromDB);
+  DB.payments     = (pays.data  || []).map(paymentFromDB);
+
+  if(sets.data){
+    DB.settings = {
+      clinicName: sets.data.clinic_name || 'Consultório',
+      clinicLogo: sets.data.clinic_logo,
+    };
+  } else {
+    DB.settings = { clinicName: 'Consultório', clinicLogo: null };
   }
 }
 
-/** Salva o estado atual no localStorage. */
-function saveDB(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(DB)); }
-  catch(e){ console.error('Falha ao salvar:', e); toast('Erro ao salvar dados localmente.'); }
-}
+/** Função de fachada: a partir daqui, o app não chama mais "saveDB()" diretamente */
+function saveDB(){ /* no-op: cada operação salva diretamente no Supabase */ }
 
 /* ------------------------------ Utils ------------------------------------ */
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
@@ -2135,35 +2271,53 @@ function openPatientModal(id){
   });
 }
 
-function savePatient(id){
+async function savePatient(id){
   const form = $('#patient-form');
   const data = Object.fromEntries(new FormData(form).entries());
   if(!data.nome.trim()){ toast('Informe o nome.'); return; }
-  // Converte o valor da consulta para número (ou null se vazio)
   data.valorConsulta = data.valorConsulta !== '' ? Number(data.valorConsulta) : null;
 
-  if(id){
-    const p = getPatient(id);
-    Object.assign(p, data);
-    toast('Paciente atualizado.');
-  } else {
-    DB.patients.push({ id: uid(), criadoEm: new Date().toISOString(), ...data });
-    toast('Paciente cadastrado.');
+  try{
+    if(id){
+      // UPDATE
+      const { error } = await sb.from('patients').update(patientToDB(data)).eq('id', id);
+      if(error) throw error;
+      const p = getPatient(id);
+      Object.assign(p, data);
+      toast('Paciente atualizado.');
+    } else {
+      // INSERT
+      const payload = { ...patientToDB(data), owner_id: currentUser.id };
+      const { data: row, error } = await sb.from('patients').insert(payload).select().single();
+      if(error) throw error;
+      DB.patients.push(patientFromDB(row));
+      toast('Paciente cadastrado.');
+    }
+    closeModal(); renderPatients(); renderDashboard();
+  } catch(err){
+    console.error(err);
+    toast('Erro ao salvar paciente: ' + (err.message || err));
   }
-  saveDB(); closeModal(); renderPatients(); renderDashboard();
 }
 
-function deletePatient(id){
+async function deletePatient(id){
   const p = getPatient(id);
   if(!p) return;
   if(!confirm(`Excluir o paciente "${p.nome}"?\n\nAtenção: consultas, históricos e pagamentos vinculados também serão removidos. Esta ação não pode ser desfeita.`)) return;
-  DB.patients     = DB.patients.filter(x => x.id !== id);
-  DB.appointments = DB.appointments.filter(x => x.pacienteId !== id);
-  DB.historico    = DB.historico.filter(x => x.pacienteId !== id);
-  DB.payments     = DB.payments.filter(x => x.pacienteId !== id);
-  saveDB();
-  renderPatients(); renderDashboard(); renderAgenda(); renderFinanceiro();
-  toast('Paciente excluído.');
+  try{
+    // CASCADE no banco já remove dependências
+    const { error } = await sb.from('patients').delete().eq('id', id);
+    if(error) throw error;
+    DB.patients     = DB.patients.filter(x => x.id !== id);
+    DB.appointments = DB.appointments.filter(x => x.pacienteId !== id);
+    DB.historico    = DB.historico.filter(x => x.pacienteId !== id);
+    DB.payments     = DB.payments.filter(x => x.pacienteId !== id);
+    renderPatients(); renderDashboard(); renderAgenda(); renderFinanceiro();
+    toast('Paciente excluído.');
+  } catch(err){
+    console.error(err);
+    toast('Erro ao excluir: ' + (err.message || err));
+  }
 }
 
 /* ---- Detalhe do paciente em modal ---- */
@@ -2572,31 +2726,47 @@ function openAppointmentModal(id, preselectPatientId, preselectDate, preselectTi
   });
 }
 
-function saveAppointment(id){
+async function saveAppointment(id){
   const form = $('#apt-form');
   const data = Object.fromEntries(new FormData(form).entries());
   if(!data.pacienteId){ toast('Escolha um paciente.'); return; }
   data.valor = Number(data.valor || 0);
 
-  if(id){
-    const a = DB.appointments.find(x => x.id === id);
-    Object.assign(a, data);
-    toast('Consulta atualizada.');
-  } else {
-    DB.appointments.push({ id: uid(), ...data });
-    toast('Consulta agendada.');
+  try{
+    if(id){
+      const { error } = await sb.from('appointments').update(appointmentToDB(data)).eq('id', id);
+      if(error) throw error;
+      const a = DB.appointments.find(x => x.id === id);
+      Object.assign(a, data);
+      toast('Consulta atualizada.');
+    } else {
+      const payload = { ...appointmentToDB(data), owner_id: currentUser.id };
+      const { data: row, error } = await sb.from('appointments').insert(payload).select().single();
+      if(error) throw error;
+      DB.appointments.push(appointmentFromDB(row));
+      toast('Consulta agendada.');
+    }
+    closeModal();
+    renderAgenda(); renderDashboard();
+  } catch(err){
+    console.error(err);
+    toast('Erro ao salvar: ' + (err.message || err));
   }
-  saveDB(); closeModal();
-  renderAgenda(); renderDashboard();
 }
 
-function deleteAppointment(id, fromModal){
+async function deleteAppointment(id, fromModal){
   if(!confirm('Excluir esta consulta?')) return;
-  DB.appointments = DB.appointments.filter(a => a.id !== id);
-  saveDB();
-  if(fromModal) closeModal();
-  renderAgenda(); renderDashboard();
-  toast('Consulta excluída.');
+  try{
+    const { error } = await sb.from('appointments').delete().eq('id', id);
+    if(error) throw error;
+    DB.appointments = DB.appointments.filter(a => a.id !== id);
+    if(fromModal) closeModal();
+    renderAgenda(); renderDashboard();
+    toast('Consulta excluída.');
+  } catch(err){
+    console.error(err);
+    toast('Erro ao excluir: ' + (err.message || err));
+  }
 }
 
 /* ==========================================================================
@@ -2693,32 +2863,46 @@ function openHistoricoModal(id, preselectPatientId){
   });
 }
 
-function saveHistorico(id){
+async function saveHistorico(id){
   const form = $('#hist-form');
   const data = Object.fromEntries(new FormData(form).entries());
   if(!data.pacienteId){ toast('Escolha um paciente.'); return; }
 
-  if(id){
-    const h = DB.historico.find(x => x.id === id);
-    Object.assign(h, data);
-    toast('Entrada atualizada.');
-  } else {
-    DB.historico.push({ id: uid(), ...data });
-    toast('Entrada salva.');
+  try{
+    if(id){
+      const { error } = await sb.from('clinical_records').update(recordToDB(data)).eq('id', id);
+      if(error) throw error;
+      const h = DB.historico.find(x => x.id === id);
+      Object.assign(h, data);
+      toast('Entrada atualizada.');
+    } else {
+      const payload = { ...recordToDB(data), owner_id: currentUser.id };
+      const { data: row, error } = await sb.from('clinical_records').insert(payload).select().single();
+      if(error) throw error;
+      DB.historico.push(recordFromDB(row));
+      toast('Entrada salva.');
+    }
+    $('#historico-patient').value = data.pacienteId;
+    closeModal(); renderHistorico();
+  } catch(err){
+    console.error(err);
+    toast('Erro ao salvar: ' + (err.message || err));
   }
-  saveDB();
-  // Garante que ao salvar a tela mostre o paciente correto
-  $('#historico-patient').value = data.pacienteId;
-  closeModal(); renderHistorico();
 }
 
-function deleteHistorico(id, fromModal){
+async function deleteHistorico(id, fromModal){
   if(!confirm('Excluir esta entrada do histórico?')) return;
-  DB.historico = DB.historico.filter(h => h.id !== id);
-  saveDB();
-  if(fromModal) closeModal();
-  renderHistorico();
-  toast('Entrada removida.');
+  try{
+    const { error } = await sb.from('clinical_records').delete().eq('id', id);
+    if(error) throw error;
+    DB.historico = DB.historico.filter(h => h.id !== id);
+    if(fromModal) closeModal();
+    renderHistorico();
+    toast('Entrada removida.');
+  } catch(err){
+    console.error(err);
+    toast('Erro ao excluir: ' + (err.message || err));
+  }
 }
 
 /* ==========================================================================
@@ -2848,31 +3032,47 @@ function openPaymentModal(id, preselectPatientId){
   });
 }
 
-function savePayment(id){
+async function savePayment(id){
   const form = $('#pay-form');
   const data = Object.fromEntries(new FormData(form).entries());
   if(!data.pacienteId){ toast('Escolha um paciente.'); return; }
   data.valor = Number(data.valor || 0);
 
-  if(id){
-    const p = DB.payments.find(x => x.id === id);
-    Object.assign(p, data);
-    toast('Pagamento atualizado.');
-  } else {
-    DB.payments.push({ id: uid(), ...data });
-    toast('Pagamento registrado.');
+  try{
+    if(id){
+      const { error } = await sb.from('payments').update(paymentToDB(data)).eq('id', id);
+      if(error) throw error;
+      const p = DB.payments.find(x => x.id === id);
+      Object.assign(p, data);
+      toast('Pagamento atualizado.');
+    } else {
+      const payload = { ...paymentToDB(data), owner_id: currentUser.id };
+      const { data: row, error } = await sb.from('payments').insert(payload).select().single();
+      if(error) throw error;
+      DB.payments.push(paymentFromDB(row));
+      toast('Pagamento registrado.');
+    }
+    closeModal();
+    renderFinanceiro(); renderDashboard();
+  } catch(err){
+    console.error(err);
+    toast('Erro ao salvar: ' + (err.message || err));
   }
-  saveDB(); closeModal();
-  renderFinanceiro(); renderDashboard();
 }
 
-function deletePayment(id, fromModal){
+async function deletePayment(id, fromModal){
   if(!confirm('Excluir este pagamento?')) return;
-  DB.payments = DB.payments.filter(p => p.id !== id);
-  saveDB();
-  if(fromModal) closeModal();
-  renderFinanceiro(); renderDashboard();
-  toast('Pagamento excluído.');
+  try{
+    const { error } = await sb.from('payments').delete().eq('id', id);
+    if(error) throw error;
+    DB.payments = DB.payments.filter(p => p.id !== id);
+    if(fromModal) closeModal();
+    renderFinanceiro(); renderDashboard();
+    toast('Pagamento excluído.');
+  } catch(err){
+    console.error(err);
+    toast('Erro ao excluir: ' + (err.message || err));
+  }
 }
 
 /* ==========================================================================
@@ -3078,46 +3278,37 @@ function clearLogo(){
   const input = $('#set-logo-input'); if(input) input.value = '';
 }
 
-function saveSettings(){
+async function saveSettings(){
   const name = $('#set-name').value.trim() || 'Consultório';
-  DB.settings = { ...(DB.settings || {}), clinicName: name, clinicLogo: pendingLogo };
   try{
-    saveDB();
+    const { error } = await sb.from('settings').upsert({
+      owner_id: currentUser.id,
+      clinic_name: name,
+      clinic_logo: pendingLogo,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'owner_id' });
+    if(error) throw error;
+    DB.settings = { ...(DB.settings || {}), clinicName: name, clinicLogo: pendingLogo };
     applySettings();
     toast('Identidade salva.');
   } catch(err){
-    // Provável: quota do localStorage excedida pela imagem
-    toast('Imagem grande demais para salvar. Tente outra menor.');
+    console.error(err);
+    toast('Erro ao salvar: ' + (err.message || err));
   }
 }
 
 /* ==========================================================================
-   AUTENTICAÇÃO / USUÁRIOS
+   AUTENTICAÇÃO / USUÁRIOS — SUPABASE AUTH
    --------------------------------------------------------------------------
-   IMPORTANTE: este sistema de login é uma proteção BÁSICA pensada para uso
-   local em um único navegador. A senha é armazenada como hash SHA-256 (não
-   em texto puro), mas isso NÃO substitui uma autenticação segura com
-   servidor, HTTPS, salt+pepper, rate limiting, etc. Para uso real em
-   produção com múltiplos dispositivos, considere uma solução com backend.
+   Agora usamos o Supabase Auth (PROFISSIONAL):
+   - Senhas hasheadas com bcrypt no servidor (não em SHA-256 simples)
+   - Tokens JWT seguros
+   - Funcionamento via HTTPS
+   - Sessão persistente automática via localStorage do SDK
    ========================================================================== */
 
-/** Calcula o hash SHA-256 de uma string e devolve em hexadecimal. */
-async function hashPassword(senha){
-  const buf = new TextEncoder().encode(senha);
-  const hash = await crypto.subtle.digest('SHA-256', buf);
-  return Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2,'0'))
-    .join('');
-}
-
-/** Normaliza e-mail/usuário para comparação (lowercase, trim). */
+/** Normaliza e-mail para comparação (lowercase, trim). */
 const normEmail = s => (s || '').trim().toLowerCase();
-
-/** Procura usuário pelo e-mail/usuário (case-insensitive). */
-function findUserByEmail(email){
-  const norm = normEmail(email);
-  return DB.users.find(u => normEmail(u.email) === norm);
-}
 
 /** Mostra erro no formulário de login/setup. */
 function showAuthError(id, msg){
@@ -3153,34 +3344,50 @@ function applyAuthBranding(){
   });
 }
 
-/** Decide qual tela mostrar no carregamento: setup, login ou app. */
-function routeAuth(){
-  applyAuthBranding();
-  // 1) Nenhum usuário cadastrado → setup inicial
-  if(!DB.users || DB.users.length === 0){
-    showScreen('setup');
-    return;
-  }
-  // 2) Existe sessão ativa válida → entra direto
-  const sessionId = localStorage.getItem(SESSION_KEY);
-  if(sessionId){
-    const u = DB.users.find(x => x.id === sessionId);
-    if(u){
-      currentUser = u;
-      enterApp();
-      return;
-    }
-    localStorage.removeItem(SESSION_KEY); // sessão inválida
-  }
-  // 3) Há usuários cadastrados → tela de login
-  showScreen('login');
-}
-
 /** Alterna entre as três "telas" raiz: setup, login, app */
 function showScreen(which){
   document.getElementById('auth-setup').classList.toggle('show', which === 'setup');
   document.getElementById('auth-login').classList.toggle('show', which === 'login');
   document.getElementById('app-main').style.display = which === 'app' ? 'grid' : 'none';
+}
+
+/**
+ * Decide qual tela mostrar no carregamento:
+ *  - Se há sessão ativa no Supabase → entra no app
+ *  - Se não há nenhum usuário cadastrado no sistema → tela de SETUP inicial
+ *  - Caso contrário → tela de LOGIN
+ */
+async function routeAuth(){
+  applyAuthBranding();
+
+  // 1) Já há sessão ativa?
+  const { data: { session } } = await sb.auth.getSession();
+  if(session && session.user){
+    currentUser = session.user;
+    try{
+      await fetchAll();
+      enterApp();
+    } catch(err){
+      console.error('Erro ao carregar dados:', err);
+      toast('Erro ao carregar dados do servidor.');
+      showScreen('login');
+    }
+    return;
+  }
+
+  // 2) Sem sessão. Verifica via RPC pública (bypassa RLS) se já existe usuário.
+  try{
+    const { data, error } = await sb.rpc('has_any_user');
+    if(error){
+      console.warn('RPC has_any_user erro:', error.message);
+      showScreen('login');
+      return;
+    }
+    showScreen(data === true ? 'login' : 'setup');
+  } catch(err){
+    console.warn('Erro ao verificar usuários:', err);
+    showScreen('login');
+  }
 }
 
 /** Cria primeiro usuário admin. */
@@ -3195,8 +3402,8 @@ async function doSetup(){
     showAuthError('setup-error', 'Preencha todos os campos.');
     return;
   }
-  if(pw.length < 4){
-    showAuthError('setup-error', 'A senha precisa ter pelo menos 4 caracteres.');
+  if(pw.length < 6){
+    showAuthError('setup-error', 'A senha precisa ter pelo menos 6 caracteres.');
     return;
   }
   if(pw !== pw2){
@@ -3205,26 +3412,32 @@ async function doSetup(){
   }
 
   try{
-    const passwordHash = await hashPassword(pw);
-    const user = {
-      id: uid(),
-      nome, email,
-      passwordHash,
-      criadoEm: new Date().toISOString(),
-    };
-    DB.users.push(user);
-    saveDB();
-    currentUser = user;
-    localStorage.setItem(SESSION_KEY, user.id);
+    // 1) Cria conta no Supabase Auth
+    const { data, error } = await sb.auth.signUp({
+      email, password: pw,
+      options: { data: { nome } }    // o trigger handle_new_user usará isso
+    });
+    if(error) throw error;
+
+    // 2) O trigger SQL já criou o profile e settings automaticamente.
+    // Se a sessão foi criada (e-mail não confirmado), entra. Senão, tenta login.
+    if(data.session){
+      currentUser = data.user;
+    } else {
+      const { data: l, error: e2 } = await sb.auth.signInWithPassword({ email, password: pw });
+      if(e2) throw e2;
+      currentUser = l.user;
+    }
+    await fetchAll();
     enterApp();
     toast(`Bem-vinda, ${nome.split(' ')[0]}!`);
   } catch(err){
-    showAuthError('setup-error', 'Erro ao criar conta. Tente novamente.');
     console.error(err);
+    showAuthError('setup-error', err.message || 'Erro ao criar conta. Tente novamente.');
   }
 }
 
-/** Tenta fazer login. */
+/** Faz login via Supabase Auth. */
 async function doLogin(){
   clearAuthError('login-error');
   const email = document.getElementById('login-email').value;
@@ -3234,35 +3447,34 @@ async function doLogin(){
     showAuthError('login-error', 'Preencha usuário e senha.');
     return;
   }
-  const user = findUserByEmail(email);
-  if(!user){
-    showAuthError('login-error', 'Usuário ou senha inválidos.');
-    return;
-  }
   try{
-    const hash = await hashPassword(pw);
-    if(hash !== user.passwordHash){
+    const { data, error } = await sb.auth.signInWithPassword({
+      email: normEmail(email), password: pw
+    });
+    if(error){
       showAuthError('login-error', 'Usuário ou senha inválidos.');
       return;
     }
-    currentUser = user;
-    localStorage.setItem(SESSION_KEY, user.id);
-    // Limpa formulário
+    currentUser = data.user;
     document.getElementById('login-password').value = '';
+    await fetchAll();
     enterApp();
-    toast(`Olá, ${user.nome.split(' ')[0]}!`);
+    // Pega o nome do profile para a saudação
+    const { data: prof } = await sb.from('profiles').select('nome').eq('id', currentUser.id).maybeSingle();
+    const firstName = prof?.nome?.split(' ')[0] || 'olá';
+    toast(`Olá, ${firstName}!`);
   } catch(err){
-    showAuthError('login-error', 'Erro ao validar login.');
     console.error(err);
+    showAuthError('login-error', 'Erro ao validar login.');
   }
 }
 
 /** Sai do sistema, volta à tela de login. */
-function doLogout(){
+async function doLogout(){
   if(!confirm('Deseja realmente sair do sistema?')) return;
-  localStorage.removeItem(SESSION_KEY);
+  await sb.auth.signOut();
   currentUser = null;
-  // Limpa campos de login
+  DB = { patients:[], appointments:[], historico:[], payments:[], settings:{ clinicName:'Consultório', clinicLogo:null } };
   document.getElementById('login-email').value = '';
   document.getElementById('login-password').value = '';
   showScreen('login');
@@ -3280,62 +3492,75 @@ function enterApp(){
   renderAgenda();
   renderFinanceiro();
   renderUsers();
+  // Marca pagamentos pendentes antigos como atrasados
+  autoMarkAtrasado();
 }
 
-/** Atualiza a "pílula" de usuário logado na sidebar. */
-function refreshCurrentUserPill(){
+/** Atualiza a "pílula" de usuário logado na sidebar (busca nome do profile). */
+async function refreshCurrentUserPill(){
   if(!currentUser) return;
   const pill = document.getElementById('current-user-pill');
   pill.style.display = 'flex';
-  document.getElementById('current-user-name').textContent = currentUser.nome;
-  document.getElementById('current-user-initials').textContent = initialsOf(currentUser.nome);
+  const { data: prof } = await sb.from('profiles').select('nome').eq('id', currentUser.id).maybeSingle();
+  const nome = prof?.nome || currentUser.email || 'Usuário';
+  document.getElementById('current-user-name').textContent = nome;
+  document.getElementById('current-user-initials').textContent = initialsOf(nome);
 }
 
-/* ----- Gerenciamento de usuários em Configurações ----- */
-function renderUsers(){
+/* ----- Gerenciamento de usuários em Configurações -----
+   No Supabase, a criação de usuários só pode ser feita pelo admin via painel
+   ou via Edge Function. Aqui mostramos a lista de quem já existe e damos
+   instruções para adicionar mais.
+*/
+async function renderUsers(){
   const wrap = document.getElementById('users-list');
   if(!wrap) return;
-  const users = DB.users || [];
-  if(!users.length){
-    wrap.innerHTML = '<p class="empty">Nenhum usuário cadastrado.</p>';
-    return;
+  try{
+    const { data: users, error } = await sb.from('profiles').select('id, nome, email, created_at');
+    if(error) throw error;
+    if(!users || !users.length){
+      wrap.innerHTML = '<p class="empty">Nenhum usuário cadastrado.</p>';
+      return;
+    }
+    wrap.innerHTML = users.map(u => {
+      const isMe = currentUser && u.id === currentUser.id;
+      return `
+        <div class="user-row ${isMe ? 'is-me' : ''}">
+          <div class="user-pill-avatar" style="width:36px; height:36px; font-size:.9rem;">${escapeHTML(initialsOf(u.nome))}</div>
+          <div class="info">
+            <strong>${escapeHTML(u.nome || '—')} ${isMe ? '<span class="me-tag">você</span>' : ''}</strong>
+            <small>${escapeHTML(u.email || '')}</small>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(err){
+    console.error(err);
+    wrap.innerHTML = '<p class="empty">Erro ao carregar usuários.</p>';
   }
-  wrap.innerHTML = users.map(u => {
-    const isMe = currentUser && u.id === currentUser.id;
-    const onlyOne = users.length === 1;
-    return `
-      <div class="user-row ${isMe ? 'is-me' : ''}">
-        <div class="user-pill-avatar" style="width:36px; height:36px; font-size:.9rem;">${escapeHTML(initialsOf(u.nome))}</div>
-        <div class="info">
-          <strong>${escapeHTML(u.nome)} ${isMe ? '<span class="me-tag">você</span>' : ''}</strong>
-          <small>${escapeHTML(u.email)}</small>
-        </div>
-        <button class="btn btn-sm btn-ghost" onclick="openResetPasswordModal('${u.id}')" title="Redefinir senha">🔑</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')" ${onlyOne ? 'disabled title="Não é possível excluir o único usuário cadastrado"' : 'title="Excluir usuário"'}>🗑</button>
-      </div>`;
-  }).join('');
 }
 
+/** Abre modal para adicionar usuário (signup pelo próprio app) */
 function openAddUserModal(){
   setModal({
     title: 'Novo usuário',
     body: `
+      <p class="muted" style="margin-bottom:.8rem;">O novo usuário será criado com seu próprio acesso ao sistema.</p>
       <form id="user-form" class="form-grid" onsubmit="event.preventDefault();saveNewUser()">
         <div class="field full">
           <label>Nome *</label>
           <input type="text" name="nome" required>
         </div>
         <div class="field full">
-          <label>E-mail ou usuário *</label>
-          <input type="text" name="email" required autocomplete="off">
+          <label>E-mail *</label>
+          <input type="email" name="email" required autocomplete="off">
         </div>
         <div class="field">
           <label>Senha *</label>
-          <input type="password" name="password" required minlength="4" autocomplete="new-password">
+          <input type="password" name="password" required minlength="6" autocomplete="new-password">
         </div>
         <div class="field">
           <label>Confirmação de senha *</label>
-          <input type="password" name="password2" required minlength="4" autocomplete="new-password">
+          <input type="password" name="password2" required minlength="6" autocomplete="new-password">
         </div>
         <div class="field full">
           <div class="auth-error" id="adduser-error"></div>
@@ -3365,128 +3590,110 @@ async function saveNewUser(){
     errEl.classList.add('show');
     return;
   }
-  if(findUserByEmail(data.email)){
-    errEl.textContent = 'Já existe um usuário com este e-mail.';
-    errEl.classList.add('show');
-    return;
-  }
+
+  // IMPORTANTE: ao criar um usuário aqui, o Supabase Auth FAZ LOGIN com o
+  // novo usuário automaticamente (signUp troca a sessão). Para preservar
+  // a sessão atual, salvamos o token e restauramos depois.
   try{
-    const passwordHash = await hashPassword(data.password);
-    DB.users.push({
-      id: uid(),
-      nome: data.nome.trim(),
+    const { data: currentSession } = await sb.auth.getSession();
+    const refreshToken = currentSession.session?.refresh_token;
+
+    const { error } = await sb.auth.signUp({
       email: data.email.trim(),
-      passwordHash,
-      criadoEm: new Date().toISOString(),
+      password: data.password,
+      options: { data: { nome: data.nome.trim() } }
     });
-    saveDB();
+    if(error) throw error;
+
+    // Restaura a sessão da admin
+    if(refreshToken){
+      await sb.auth.refreshSession({ refresh_token: refreshToken });
+    }
     closeModal();
-    renderUsers();
+    await renderUsers();
     toast('Usuário adicionado.');
   } catch(err){
-    errEl.textContent = 'Erro ao salvar.';
+    console.error(err);
+    errEl.textContent = err.message || 'Erro ao salvar.';
     errEl.classList.add('show');
   }
 }
 
-function deleteUser(id){
-  if(DB.users.length <= 1){
-    toast('Não é possível excluir o último usuário cadastrado.');
-    return;
-  }
-  const u = DB.users.find(x => x.id === id);
-  if(!u) return;
-  if(!confirm(`Excluir o usuário "${u.nome}"?`)) return;
-  DB.users = DB.users.filter(x => x.id !== id);
-  saveDB();
-  // Se a pessoa excluiu a si mesma, faz logout
-  if(currentUser && currentUser.id === id){
-    localStorage.removeItem(SESSION_KEY);
-    currentUser = null;
-    showScreen('login');
-    return;
-  }
-  renderUsers();
-  toast('Usuário excluído.');
+/* Excluir e redefinir senha de usuário no Supabase exigem permissões de
+   admin (service_role) que não temos no front. Por isso, esses botões
+   foram removidos. A redefinição pode ser feita via "Esqueci minha senha"
+   ou diretamente no painel do Supabase em Authentication → Users. */
+function deleteUser(){ toast('Para excluir usuários, use o painel do Supabase.'); }
+function openResetPasswordModal(){ toast('Para redefinir senha, use o painel do Supabase ou o e-mail de recuperação.'); }
+
+/* ==========================================================================
+   IMPORT / EXPORT / RESET — adaptados para Supabase
+   ========================================================================== */
+
+/** Exporta backup local (snapshot dos dados na nuvem). */
+function exportData(){
+  const blob = new Blob([JSON.stringify(DB, null, 2)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `consultorio-backup-${todayISO()}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+  toast('Backup gerado.');
 }
 
-function openResetPasswordModal(id){
-  const u = DB.users.find(x => x.id === id);
-  if(!u) return;
-  setModal({
-    title: `Redefinir senha — ${u.nome}`,
-    body: `
-      <form id="resetpw-form" class="form-grid" onsubmit="event.preventDefault();saveResetPassword('${id}')">
-        <div class="field full">
-          <label>Nova senha *</label>
-          <input type="password" name="password" required minlength="4" autocomplete="new-password">
-        </div>
-        <div class="field full">
-          <label>Confirmar nova senha *</label>
-          <input type="password" name="password2" required minlength="4" autocomplete="new-password">
-        </div>
-        <div class="field full">
-          <div class="auth-error" id="resetpw-error"></div>
-        </div>
-      </form>
-    `,
-    foot: `
-      <button class="btn" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="$('#resetpw-form').requestSubmit()">Salvar nova senha</button>
-    `
-  });
+/** Importar JSON agora desabilitado — os dados ficam no Supabase. */
+async function importData(e){
+  e.target.value = '';
+  toast('Importação não disponível: os dados agora ficam no Supabase.');
 }
 
-async function saveResetPassword(id){
-  const form = document.getElementById('resetpw-form');
-  const data = Object.fromEntries(new FormData(form).entries());
-  const errEl = document.getElementById('resetpw-error');
-  errEl.classList.remove('show');
-
-  if(!data.password || data.password.length < 4){
-    errEl.textContent = 'A senha precisa ter pelo menos 4 caracteres.';
-    errEl.classList.add('show');
-    return;
-  }
-  if(data.password !== data.password2){
-    errEl.textContent = 'As senhas não coincidem.';
-    errEl.classList.add('show');
-    return;
-  }
+/** Limpar todos os dados — apaga todos os registros DESTA usuária no Supabase. */
+async function confirmClearAll(){
+  if(!confirm('Tem certeza que deseja apagar TODOS os SEUS dados?\n\nEsta ação é irreversível. Considere exportar um backup antes.')) return;
+  if(!confirm('Confirmação final: apagar tudo mesmo?')) return;
   try{
-    const u = DB.users.find(x => x.id === id);
-    if(!u) return;
-    u.passwordHash = await hashPassword(data.password);
-    saveDB();
-    closeModal();
-    toast('Senha redefinida.');
+    await sb.from('clinical_records').delete().eq('owner_id', currentUser.id);
+    await sb.from('payments').delete().eq('owner_id', currentUser.id);
+    await sb.from('appointments').delete().eq('owner_id', currentUser.id);
+    await sb.from('patients').delete().eq('owner_id', currentUser.id);
+    DB.patients = []; DB.appointments = []; DB.historico = []; DB.payments = [];
+    renderPatients(); renderAgenda(); renderHistorico(); renderFinanceiro(); renderDashboard();
+    toast('Todos os seus dados foram removidos.');
   } catch(err){
-    errEl.textContent = 'Erro ao salvar.';
-    errEl.classList.add('show');
+    console.error(err);
+    toast('Erro ao limpar dados.');
   }
+}
+
+/** Auto-marca pagamentos pendentes vencidos como atrasados (cache local). */
+function autoMarkAtrasado(){
+  let changed = false;
+  const today = todayISO();
+  DB.payments.forEach(p => {
+    if(p.status === 'pendente' && p.data && p.data < today){
+      p.status = 'atrasado';
+      changed = true;
+      // Atualiza também no servidor (sem aguardar)
+      sb.from('payments').update({ status: 'atrasado' }).eq('id', p.id);
+    }
+  });
+  if(changed){ renderFinanceiro(); renderDashboard(); }
 }
 
 /* ==========================================================================
    BOOTSTRAP
    ========================================================================== */
-loadDB();
-// Garante compatibilidade com dados antigos
-if(!DB.settings) DB.settings = { clinicName: 'Consultório', clinicLogo: null };
-if(!Array.isArray(DB.users)) DB.users = [];
-// Decide a tela inicial (setup / login / app)
-routeAuth();
+// Aguarda o DOM e o SDK estarem prontos, depois decide a rota inicial.
+document.addEventListener('DOMContentLoaded', () => routeAuth());
 
-// Atualiza badges de "consulta atrasada" — passa para "atrasado" pagamentos pendentes com data anterior a hoje
-(function autoMarkAtrasado(){
-  let changed = false;
-  DB.payments.forEach(p => {
-    if(p.status === 'pendente' && p.data && p.data < todayISO()){
-      p.status = 'atrasado';
-      changed = true;
-    }
-  });
-  if(changed){ saveDB(); renderFinanceiro(); renderDashboard(); }
-})();
+// Reage a logout em outras abas
+sb.auth.onAuthStateChange((event, session) => {
+  if(event === 'SIGNED_OUT' && currentUser){
+    currentUser = null;
+    showScreen('login');
+  }
+});
 </script>
 </body>
 </html>
