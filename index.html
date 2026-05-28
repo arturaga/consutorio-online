@@ -3805,6 +3805,10 @@ function renderFinanceiro(){
           <td>${statusBadge(p.status, 'pagamento')}</td>
           <td>
             <div class="tbl-actions">
+              ${(p.status === 'atrasado' || p.status === 'pendente') && pa && pa.telefone ? `
+              <button class="btn btn-sm" style="background:#25D366;color:#fff;border:none;" onclick="cobrarWhatsApp('${p.id}')" title="Cobrar via WhatsApp">
+                📲 Cobrar
+              </button>` : ''}
               <button class="btn btn-sm btn-ghost" onclick="openPaymentModal('${p.id}')" title="Editar">✎</button>
               <button class="btn btn-sm btn-danger" onclick="deletePayment('${p.id}')" title="Excluir">🗑</button>
             </div>
@@ -3819,6 +3823,21 @@ function formaLabel(f){
     pix:'Pix', dinheiro:'Dinheiro', cartao:'Cartão',
     transferencia:'Transferência', outro:'Outro'
   })[f] || '—';
+}
+
+function cobrarWhatsApp(paymentId){
+  const pg = DB.payments.find(x => x.id === paymentId);
+  if(!pg) return;
+  const pa = getPatient(pg.pacienteId);
+  if(!pa || !pa.telefone){ alert('Paciente sem telefone cadastrado.'); return; }
+
+  const valor = pg.valor ? `R$ ${Number(pg.valor).toFixed(2).replace('.',',')}` : '';
+  const data  = pg.data  ? new Date(pg.data+'T12:00:00').toLocaleDateString('pt-BR') : '';
+  const status = pg.status === 'atrasado' ? 'está em atraso' : 'está pendente';
+
+  const msg = `Olá, ${pa.nome}! 👋\n\nPassando para lembrar que o pagamento de ${valor}${data ? ' referente a ' + data : ''} ${status}.\n\nQualquer dúvida, é só falar! 😊`;
+  const tel = pa.telefone.replace(/\D/g,'');
+  window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 function clearFinanceFilters(){
