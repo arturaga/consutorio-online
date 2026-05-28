@@ -2658,7 +2658,7 @@ function refreshPatientSelects(){
 }
 
 /* ---- Modal: cadastrar/editar paciente ---- */
-function openPatientModal(id){
+async function openPatientModal(id){
   const p = id ? getPatient(id) : {};
   setModal({
     title: id ? 'Editar paciente' : 'Novo paciente',
@@ -2679,6 +2679,11 @@ function openPatientModal(id){
               <button type="button" class="btn btn-sm btn-ghost" onclick="clearPatientPhoto()">Remover</button>
             </div>
           </div>
+        </div>
+
+        <!-- DADOS CADASTRAIS -->
+        <div class="field full" style="margin-top:.25rem;">
+          <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:.5rem 0 .25rem;border-bottom:1px solid var(--border);margin-bottom:.25rem;">Dados cadastrais</div>
         </div>
         <div class="field full">
           <label>Nome completo *</label>
@@ -2720,6 +2725,14 @@ function openPatientModal(id){
           <label>Observações gerais</label>
           <textarea name="observacoes">${escapeHTML(p.observacoes || '')}</textarea>
         </div>
+
+        <!-- ANAMNESE -->
+        <div class="field full" style="margin-top:.5rem;">
+          <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:.5rem 0 .25rem;border-bottom:1px solid var(--border);margin-bottom:.25rem;">Anamnese psicológica</div>
+        </div>
+        <div class="field" id="anamnese-loading-row" style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:.85rem;padding:.5rem 0;">
+          Carregando anamnese…
+        </div>
       </form>
     `,
     foot: `
@@ -2727,6 +2740,85 @@ function openPatientModal(id){
       <button class="btn btn-primary" onclick="$('#patient-form').requestSubmit()">Salvar</button>
     `
   });
+
+  // Carrega anamnese existente e injeta campos no form
+  if(id){
+    try{
+      const { data: an } = await sb.from('anamnesis').select('*').eq('patient_id', id).maybeSingle();
+      injectAnamneseFields(an || {});
+    } catch(e){ injectAnamneseFields({}); }
+  } else {
+    injectAnamneseFields({});
+  }
+}
+
+function injectAnamneseFields(an){
+  const loading = document.getElementById('anamnese-loading-row');
+  if(loading) loading.remove();
+
+  const form = document.getElementById('patient-form');
+  if(!form) return;
+
+  const yesNo = (val) => val === true ? 'true' : val === false ? 'false' : '';
+
+  const html = `
+    <div class="field">
+      <label>Estado civil</label>
+      <select name="an_estado_civil">
+        <option value="">—</option>
+        ${['Solteiro (a)','Casado (a)','União estável','Divorciado (a)','Separado (a)','Viúvo (a)','Noivo (a)'].map(o =>
+          `<option value="${o}" ${(an.estado_civil||'')=== o?'selected':''}>${o}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label>Profissão / Ocupação</label>
+      <input name="an_profissao" value="${escapeHTML(an.profissao||'')}">
+    </div>
+    <div class="field">
+      <label>Já fez terapia?</label>
+      <select name="an_ja_fez_terapia">
+        <option value="">—</option>
+        <option value="true"  ${yesNo(an.ja_fez_terapia)==='true'?'selected':''}>Sim</option>
+        <option value="false" ${yesNo(an.ja_fez_terapia)==='false'?'selected':''}>Não</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Contato de emergência</label>
+      <input name="an_emergencia_contato" value="${escapeHTML(an.emergencia_contato||'')}">
+    </div>
+    <div class="field full">
+      <label>Motivação para buscar terapia</label>
+      <textarea name="an_motivacao_busca" rows="3">${escapeHTML(an.motivacao_busca||'')}</textarea>
+    </div>
+    <div class="field full">
+      <label>Medicamentos em uso</label>
+      <textarea name="an_medicamentos" rows="2">${escapeHTML(an.medicamentos||'')}</textarea>
+    </div>
+    <div class="field full">
+      <label>Diagnósticos médicos</label>
+      <textarea name="an_diagnosticos" rows="2">${escapeHTML(an.diagnosticos||'')}</textarea>
+    </div>
+    <div class="field full">
+      <label>Histórico de internação</label>
+      <textarea name="an_internacao" rows="2">${escapeHTML(an.internacao||'')}</textarea>
+    </div>
+    <div class="field full">
+      <label>Ideação suicida</label>
+      <textarea name="an_ideacao_suicida" rows="2">${escapeHTML(an.ideacao_suicida||'')}</textarea>
+    </div>
+    <div class="field full">
+      <label>Família · transtornos mentais</label>
+      <textarea name="an_familia_transtorno" rows="2">${escapeHTML(an.familia_transtorno||'')}</textarea>
+    </div>
+    <div class="field full">
+      <label>Família · histórico de suicídio</label>
+      <textarea name="an_familia_suicidio" rows="2">${escapeHTML(an.familia_suicidio||'')}</textarea>
+    </div>
+  `;
+
+  const frag = document.createRange().createContextualFragment(html);
+  form.appendChild(frag);
 }
 
 async function savePatient(id){
@@ -2735,22 +2827,47 @@ async function savePatient(id){
   if(!data.nome.trim()){ toast('Informe o nome.'); return; }
   data.valorConsulta = data.valorConsulta !== '' ? Number(data.valorConsulta) : null;
 
+  // Separa campos da anamnese
+  const anamData = {
+    estado_civil:       data.an_estado_civil       || null,
+    profissao:          data.an_profissao           || null,
+    ja_fez_terapia:     data.an_ja_fez_terapia === 'true' ? true : data.an_ja_fez_terapia === 'false' ? false : null,
+    motivacao_busca:    data.an_motivacao_busca     || null,
+    medicamentos:       data.an_medicamentos        || null,
+    diagnosticos:       data.an_diagnosticos        || null,
+    internacao:         data.an_internacao          || null,
+    ideacao_suicida:    data.an_ideacao_suicida     || null,
+    familia_transtorno: data.an_familia_transtorno  || null,
+    familia_suicidio:   data.an_familia_suicidio    || null,
+    emergencia_contato: data.an_emergencia_contato  || null,
+  };
+
   try{
+    let patientId = id;
     if(id){
-      // UPDATE
       const { error } = await sb.from('patients').update(patientToDB(data)).eq('id', id);
       if(error) throw error;
       const p = getPatient(id);
       Object.assign(p, data);
       toast('Paciente atualizado.');
     } else {
-      // INSERT
       const payload = { ...patientToDB(data), owner_id: currentUser.id };
       const { data: row, error } = await sb.from('patients').insert(payload).select().single();
       if(error) throw error;
+      patientId = row.id;
       DB.patients.push(patientFromDB(row));
       toast('Paciente cadastrado.');
     }
+
+    // Salva anamnese (upsert)
+    const hasAnam = Object.values(anamData).some(v => v !== null);
+    if(hasAnam){
+      await sb.from('anamnesis').upsert(
+        { ...anamData, patient_id: patientId, owner_id: currentUser.id },
+        { onConflict: 'patient_id' }
+      );
+    }
+
     closeModal(); renderPatients(); renderDashboard();
   } catch(err){
     console.error(err);
