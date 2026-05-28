@@ -4290,6 +4290,8 @@ async function initPublicRegister(token){
       logoEl.innerHTML = `<img src="${info.clinic_logo}" alt="">`;
     }
     document.title = `Cadastro · ${info.clinic_name || 'Consultório'}`;
+    // Aplica tema do consultório
+    if(info.theme_primary) applyTheme(info.theme_primary, info.theme_bg || '#F5F1EA', info.theme_accent || '#A89BB9');
     showRegisterState('form');
   } catch(err){
     console.error('Erro ao carregar info do consultório:', err);
@@ -4998,6 +5000,9 @@ function renderPatientArea(d){
   document.getElementById('pa-patient-name').textContent = p.nome || '';
   const logoEl = document.getElementById('pa-logo');
   if(settings.logo_url){ logoEl.innerHTML = `<img src="${settings.logo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`; }
+
+  // Aplica tema do consultório
+  if(settings.theme_primary) applyTheme(settings.theme_primary, settings.theme_bg || '#F5F1EA', settings.theme_accent || '#A89BB9');
 
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const consultas = d.consultas || [];
