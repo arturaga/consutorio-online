@@ -2283,6 +2283,14 @@ function recordFromDB(row){
     condutas: row.condutas,
     observacoesInternas: row.observacoes_internas,
     proximaConduta: row.proxima_conduta,
+    queixaPrincipal: row.queixa_principal,
+    hipoteseDiagnostica: row.hipotese_diagnostica,
+    cid: row.cid,
+    planoTerapeutico: row.plano_terapeutico,
+    evolucao: row.evolucao,
+    risco: row.risco,
+    numeroSessao: row.numero_sessao,
+    signedAt: row.signed_at,
   };
 }
 function recordToDB(h){
@@ -2293,6 +2301,13 @@ function recordToDB(h){
     condutas: h.condutas || null,
     observacoes_internas: h.observacoesInternas || null,
     proxima_conduta: h.proximaConduta || null,
+    queixa_principal: h.queixaPrincipal || null,
+    hipotese_diagnostica: h.hipoteseDiagnostica || null,
+    cid: h.cid || null,
+    plano_terapeutico: h.planoTerapeutico || null,
+    evolucao: h.evolucao || null,
+    risco: h.risco || null,
+    numero_sessao: h.numeroSessao ? Number(h.numeroSessao) : null,
   };
 }
 
@@ -2370,7 +2385,11 @@ const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(3
 const fmtBRL = v => (Number(v) || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 const $ = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
-const todayISO = () => new Date().toISOString().slice(0,10);
+const todayISO = () => {
+  // Data LOCAL (não UTC) — evita que à noite no Brasil o "hoje" pule para o dia seguinte.
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
 
 /** Converte "YYYY-MM-DD" -> "dd/mm/yyyy" */
 function fmtDate(iso){
@@ -2514,6 +2533,24 @@ function renderDashboard(){
     ${tile('A receber',        fmtBRL(pendentes.reduce((s,p)=>s+Number(p.valor||0),0)).replace('R$',''), 'R$', `${pendentes.length} pagamento(s)`, walletIcon(), 'warning')}
     ${tile('Recebido no mês',  fmtBRL(recebMes).replace('R$',''), 'R$', 'Pagamentos confirmados', cashIcon())}
   `;
+
+  // Alertas acionáveis (vencidos, pedidos novos, consultas de hoje)
+  const atrasados = DB.payments.filter(p => p.status === 'atrasado');
+  const pedidosNovos = (typeof pedidosData !== 'undefined' && pedidosData ? pedidosData : []).filter(r => !r.visto).length;
+  const alerts = [];
+  if(atrasados.length) alerts.push(`<button class="btn btn-sm" style="background:var(--danger-soft);color:var(--danger);border:none;" onclick="show('financeiro')">💰 ${atrasados.length} pagamento(s) atrasado(s) · ${fmtBRL(atrasados.reduce((s,p)=>s+Number(p.valor||0),0))}</button>`);
+  if(pedidosNovos) alerts.push(`<button class="btn btn-sm" style="background:var(--accent-soft);color:var(--accent);border:none;" onclick="show('pedidos')">🔔 ${pedidosNovos} novo(s) pedido(s)</button>`);
+  if(today.length) alerts.push(`<button class="btn btn-sm" style="background:var(--info-soft);color:var(--info);border:none;" onclick="show('agenda')">📅 ${today.length} consulta(s) hoje</button>`);
+  let alertBar = document.getElementById('dash-alerts');
+  if(!alertBar){
+    alertBar = document.createElement('div');
+    alertBar.id = 'dash-alerts';
+    alertBar.style.cssText = 'display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;';
+    const tilesEl = $('#tiles');
+    if(tilesEl && tilesEl.parentNode) tilesEl.parentNode.insertBefore(alertBar, tilesEl);
+  }
+  alertBar.innerHTML = alerts.join('');
+  alertBar.style.display = alerts.length ? 'flex' : 'none';
 
   // Agenda de hoje no painel
   renderMiniAgenda($('#dash-today'), today.sort(byTime), 'Nenhuma consulta hoje.');
@@ -3452,6 +3489,18 @@ function duplicateAppointment(id){
   }, 30);
 }
 
+/** Retorna a consulta conflitante (mesmo dia/horário, não cancelada) ou null. */
+function findConflict(dataISO, horario, exceptId){
+  if(!dataISO || !horario) return null;
+  const hh = horario.slice(0,5);
+  return DB.appointments.find(a =>
+    a.id !== exceptId &&
+    a.data === dataISO &&
+    (a.horario || '').slice(0,5) === hh &&
+    a.status !== 'cancelada'
+  ) || null;
+}
+
 async function saveAppointment(id){
   const form = $('#apt-form');
   const data = Object.fromEntries(new FormData(form).entries());
@@ -3461,6 +3510,8 @@ async function saveAppointment(id){
   try{
     if(id){
       // EDITAR — atualiza só a ocorrência (não mexe na série)
+      const conf = findConflict(data.data, data.horario, id);
+      if(conf && !confirm(`Já existe outra consulta em ${fmtDate(data.data)} às ${data.horario}. Salvar mesmo assim?`)) return;
       const { error } = await sb.from('appointments').update(appointmentToDB(data)).eq('id', id);
       if(error) throw error;
       const a = DB.appointments.find(x => x.id === id);
@@ -3475,6 +3526,8 @@ async function saveAppointment(id){
     const recorrencia = data.recorrencia || 'unica';
 
     if(recorrencia === 'unica'){
+      const conf = findConflict(data.data, data.horario, null);
+      if(conf && !confirm(`Já existe consulta em ${fmtDate(data.data)} às ${data.horario}. Agendar mesmo assim?`)) return;
       const payload = { ...appointmentToDB(data), owner_id: currentUser.id };
       const { data: row, error } = await sb.from('appointments').insert(payload).select().single();
       if(error) throw error;
@@ -3527,6 +3580,8 @@ async function saveAppointment(id){
     if(dates.length > 100){
       if(!confirm(`Isso criará ${dates.length} consultas. Tem certeza?`)) return;
     }
+    const conflitos = dates.filter(dt => findConflict(dt, data.horario, null)).length;
+    if(conflitos > 0 && !confirm(`${conflitos} de ${dates.length} datas já têm consulta nesse horário. Criar mesmo assim?`)) return;
 
     // 1) Cria a série
     const seriesPayload = {
@@ -3559,7 +3614,11 @@ async function saveAppointment(id){
       series_id: series.id,
     }));
     const { data: rows, error: errA } = await sb.from('appointments').insert(occurrencesPayload).select();
-    if(errA) throw errA;
+    if(errA){
+      // rollback: remove a série órfã para não deixar lixo no banco se as ocorrências falharem
+      await sb.from('appointment_series').delete().eq('id', series.id);
+      throw errA;
+    }
     rows.forEach(r => DB.appointments.push(appointmentFromDB(r)));
 
     toast(`${dates.length} consultas criadas (série recorrente).`);
@@ -3670,23 +3729,30 @@ function renderHistorico(){
     .sort((a,b) => b.data.localeCompare(a.data));
 
   wrap.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem; gap:.5rem; flex-wrap:wrap">
       <h3 style="font-family:var(--font-display)">${escapeHTML(p.nome)}</h3>
-      <span class="muted">${items.length} entrada(s)</span>
+      <div style="display:flex; align-items:center; gap:.5rem">
+        <span class="muted">${items.length} entrada(s)</span>
+        ${items.length ? `<button class="btn btn-sm" onclick="exportProntuarioPDF('${pid}')">🖨 Exportar PDF</button>` : ''}
+      </div>
     </div>
     ${items.length ? items.map(h => `
       <div class="history-item">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:.5rem">
-          <div class="h-date">${fmtDate(h.data)}</div>
+          <div class="h-date">${fmtDate(h.data)}${h.numeroSessao ? ` · sessão ${h.numeroSessao}` : ''} ${riscoBadge(h.risco)} ${h.signedAt ? '🔒' : ''}</div>
           <div class="actions">
-            <button class="btn btn-sm btn-ghost" onclick="openHistoricoModal('${h.id}')" title="Editar">✎</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteHistorico('${h.id}')" title="Excluir">🗑</button>
+            <button class="btn btn-sm btn-ghost" onclick="openHistoricoModal('${h.id}')" title="${h.signedAt ? 'Ver' : 'Editar'}">${h.signedAt ? '👁' : '✎'}</button>
+            ${h.signedAt ? '' : `<button class="btn btn-sm btn-danger" onclick="deleteHistorico('${h.id}')" title="Excluir">🗑</button>`}
           </div>
         </div>
-        ${h.resumo            ? `<p><span class="label">Resumo da sessão:</span> ${escapeHTML(h.resumo)}</p>` : ''}
-        ${h.condutas          ? `<p><span class="label">Condutas / orientações:</span> ${escapeHTML(h.condutas)}</p>` : ''}
-        ${h.observacoesInternas ? `<p><span class="label">Observações internas:</span> ${escapeHTML(h.observacoesInternas)}</p>` : ''}
-        ${h.proximaConduta    ? `<p><span class="label">Próxima conduta:</span> ${escapeHTML(h.proximaConduta)}</p>` : ''}
+        ${h.queixaPrincipal     ? `<p><span class="label">Queixa principal:</span> ${escapeHTML(h.queixaPrincipal)}</p>` : ''}
+        ${h.resumo              ? `<p><span class="label">Resumo da sessão:</span> ${escapeHTML(h.resumo)}</p>` : ''}
+        ${h.evolucao            ? `<p><span class="label">Evolução:</span> ${escapeHTML(h.evolucao)}</p>` : ''}
+        ${(h.hipoteseDiagnostica || h.cid) ? `<p><span class="label">Hipótese / CID:</span> ${escapeHTML([h.hipoteseDiagnostica, h.cid].filter(Boolean).join(' · '))}</p>` : ''}
+        ${h.condutas            ? `<p><span class="label">Condutas / orientações:</span> ${escapeHTML(h.condutas)}</p>` : ''}
+        ${h.planoTerapeutico    ? `<p><span class="label">Plano terapêutico:</span> ${escapeHTML(h.planoTerapeutico)}</p>` : ''}
+        ${h.proximaConduta      ? `<p><span class="label">Próxima conduta:</span> ${escapeHTML(h.proximaConduta)}</p>` : ''}
+        ${h.observacoesInternas ? `<p><span class="label">Obs. internas:</span> ${escapeHTML(h.observacoesInternas)}</p>` : ''}
       </div>
     `).join('') : '<p class="empty">Nenhuma entrada cadastrada para este paciente.</p>'}
   `;
@@ -3702,41 +3768,78 @@ function openHistoricoModal(id, preselectPatientId){
     .map(p => `<option value="${p.id}" ${pid===p.id?'selected':''}>${escapeHTML(p.nome)}</option>`)
     .join('');
 
+  const signed = !!h.signedAt;
+  const ro = signed ? 'disabled' : '';
+  const riscoOpts = [['','—'],['sem','Sem risco aparente'],['baixo','Baixo'],['moderado','Moderado'],['alto','Alto']]
+    .map(([v,l]) => `<option value="${v}" ${(h.risco||'')===v ? 'selected' : ''}>${l}</option>`).join('');
+
   setModal({
-    title: id ? 'Editar entrada de histórico' : 'Nova entrada de histórico',
+    title: id ? (signed ? 'Prontuário (assinado)' : 'Editar entrada de prontuário') : 'Nova entrada de prontuário',
     body: `
+      ${signed ? `<div style="background:var(--primary-soft);color:var(--primary-deep);padding:.6rem .8rem;border-radius:10px;margin-bottom:.8rem;font-size:.85rem">🔒 Assinado em ${fmtDate(h.signedAt.slice(0,10))} — somente leitura.</div>` : ''}
       <form id="hist-form" class="form-grid" onsubmit="event.preventDefault();saveHistorico('${id||''}')">
         <div class="field">
           <label>Paciente *</label>
-          <select name="pacienteId" required>
+          <select name="pacienteId" required ${ro}>
             <option value="">Selecionar…</option>
             ${patientOptions}
           </select>
         </div>
         <div class="field">
           <label>Data da consulta *</label>
-          <input type="date" name="data" required value="${h.data || todayISO()}">
+          <input type="date" name="data" required value="${h.data || todayISO()}" ${ro}>
+        </div>
+        <div class="field">
+          <label>Nº da sessão</label>
+          <input type="number" name="numeroSessao" min="1" value="${h.numeroSessao || ''}" ${ro}>
+        </div>
+        <div class="field">
+          <label>Avaliação de risco</label>
+          <select name="risco" ${ro}>${riscoOpts}</select>
+        </div>
+        <div class="field full">
+          <label>Queixa principal / motivo da sessão</label>
+          <textarea name="queixaPrincipal" ${ro}>${escapeHTML(h.queixaPrincipal || '')}</textarea>
         </div>
         <div class="field full">
           <label>Resumo da sessão</label>
-          <textarea name="resumo">${escapeHTML(h.resumo || '')}</textarea>
+          <textarea name="resumo" ${ro}>${escapeHTML(h.resumo || '')}</textarea>
+        </div>
+        <div class="field full">
+          <label>Evolução clínica</label>
+          <textarea name="evolucao" ${ro}>${escapeHTML(h.evolucao || '')}</textarea>
+        </div>
+        <div class="field">
+          <label>Hipótese diagnóstica</label>
+          <input type="text" name="hipoteseDiagnostica" value="${escapeHTML(h.hipoteseDiagnostica || '')}" ${ro}>
+        </div>
+        <div class="field">
+          <label>CID / código</label>
+          <input type="text" name="cid" value="${escapeHTML(h.cid || '')}" ${ro}>
         </div>
         <div class="field full">
           <label>Condutas e orientações</label>
-          <textarea name="condutas">${escapeHTML(h.condutas || '')}</textarea>
+          <textarea name="condutas" ${ro}>${escapeHTML(h.condutas || '')}</textarea>
         </div>
         <div class="field full">
-          <label>Observações internas (privadas)</label>
-          <textarea name="observacoesInternas">${escapeHTML(h.observacoesInternas || '')}</textarea>
+          <label>Plano terapêutico</label>
+          <textarea name="planoTerapeutico" ${ro}>${escapeHTML(h.planoTerapeutico || '')}</textarea>
         </div>
         <div class="field full">
           <label>Próxima conduta / acompanhamento</label>
-          <textarea name="proximaConduta">${escapeHTML(h.proximaConduta || '')}</textarea>
+          <textarea name="proximaConduta" ${ro}>${escapeHTML(h.proximaConduta || '')}</textarea>
+        </div>
+        <div class="field full">
+          <label>Observações internas (privadas — não saem no PDF)</label>
+          <textarea name="observacoesInternas" ${ro}>${escapeHTML(h.observacoesInternas || '')}</textarea>
         </div>
       </form>
     `,
-    foot: `
+    foot: signed ? `
+      <button class="btn" onclick="closeModal()">Fechar</button>
+    ` : `
       ${id ? `<button class="btn btn-danger" onclick="deleteHistorico('${id}', true)">Excluir</button>` : ''}
+      ${id ? `<button class="btn" onclick="signProntuario('${id}')" title="Assina e bloqueia a edição">🔒 Assinar</button>` : ''}
       <button class="btn" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="$('#hist-form').requestSubmit()">Salvar</button>
     `
@@ -3783,6 +3886,73 @@ async function deleteHistorico(id, fromModal){
     console.error(err);
     toast('Erro ao excluir: ' + (err.message || err));
   }
+}
+
+/** Selo visual de avaliação de risco. */
+function riscoBadge(r){
+  if(!r || r === 'sem') return '';
+  const map = {
+    baixo:    ['#E1E9F1', '#3a5a76', 'Risco baixo'],
+    moderado: ['#F6E8DC', '#8a5a2b', 'Risco moderado'],
+    alto:     ['#F4DEDE', '#8a3a3a', 'RISCO ALTO'],
+  };
+  const m = map[r];
+  if(!m) return '';
+  return `<span style="background:${m[0]};color:${m[1]};padding:.1rem .5rem;border-radius:999px;font-size:.72rem;font-weight:700">${m[2]}</span>`;
+}
+
+/** Assina a entrada (carimbo de data) e bloqueia edição. */
+async function signProntuario(id){
+  if(!confirm('Assinar bloqueia a edição desta entrada do prontuário. Deseja continuar?')) return;
+  try{
+    const nowIso = new Date().toISOString();
+    const { error } = await sb.from('clinical_records').update({ signed_at: nowIso }).eq('id', id);
+    if(error) throw error;
+    const h = DB.historico.find(x => x.id === id);
+    if(h) h.signedAt = nowIso;
+    closeModal(); renderHistorico();
+    toast('Prontuário assinado.');
+  } catch(err){
+    console.error(err);
+    toast('Erro ao assinar: ' + (err.message || err));
+  }
+}
+
+/** Exporta o prontuário do paciente em uma janela de impressão (salvar como PDF). */
+function exportProntuarioPDF(pid){
+  const p = getPatient(pid);
+  if(!p) return;
+  const items = DB.historico.filter(h => h.pacienteId === pid).sort((a,b) => a.data.localeCompare(b.data));
+  const clinic = (DB.settings && DB.settings.clinicName) || 'Consultório';
+  const esc = escapeHTML;
+  const linha = (label, val) => val ? `<p style="margin:.2rem 0"><strong>${label}:</strong> ${esc(val)}</p>` : '';
+  const corpo = items.map(h => `
+    <div style="border:1px solid #ddd;border-radius:8px;padding:10px 12px;margin:8px 0;page-break-inside:avoid">
+      <div style="font-weight:600;margin-bottom:.2rem">${fmtDate(h.data)}${h.numeroSessao ? ' · sessão ' + h.numeroSessao : ''}${h.risco && h.risco !== 'sem' ? ' · risco ' + esc(h.risco) : ''}${h.signedAt ? ' · assinado em ' + fmtDate(h.signedAt.slice(0,10)) : ''}</div>
+      ${linha('Queixa principal', h.queixaPrincipal)}
+      ${linha('Resumo da sessão', h.resumo)}
+      ${linha('Evolução', h.evolucao)}
+      ${linha('Hipótese diagnóstica', h.hipoteseDiagnostica)}
+      ${linha('CID', h.cid)}
+      ${linha('Condutas e orientações', h.condutas)}
+      ${linha('Plano terapêutico', h.planoTerapeutico)}
+      ${linha('Próxima conduta', h.proximaConduta)}
+    </div>
+  `).join('');
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Prontuário — ${esc(p.nome)}</title>
+    <style>body{font-family:Arial,Helvetica,sans-serif;color:#222;max-width:800px;margin:24px auto;padding:0 16px;line-height:1.45}
+    h1{font-size:18px;margin:0 0 4px}.meta{color:#555;font-size:13px;margin-bottom:14px}
+    @media print{button{display:none}}</style></head><body>
+    <h1>${esc(clinic)} — Prontuário</h1>
+    <div class="meta">Paciente: <strong>${esc(p.nome)}</strong>${p.dataNascimento ? ' · Nasc.: ' + fmtDate(p.dataNascimento) : ''}${p.cpf ? ' · CPF: ' + esc(p.cpf) : ''}<br>Emitido em ${fmtDate(todayISO())} · ${items.length} entrada(s)</div>
+    ${corpo || '<p>Sem entradas registradas.</p>'}
+    <p style="margin-top:24px;font-size:12px;color:#666">Observações internas (privadas) não são incluídas neste documento.</p>
+    <button onclick="window.print()" style="margin-top:12px;padding:8px 14px;cursor:pointer">Imprimir / Salvar como PDF</button>
+    </body></html>`;
+  const w = window.open('', '_blank');
+  if(!w){ toast('Permita pop-ups para exportar o PDF.'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 /* ==========================================================================
@@ -3977,58 +4147,9 @@ async function deletePayment(id, fromModal){
 /* ==========================================================================
    IMPORT / EXPORT / RESET
    ========================================================================== */
-function exportData(){
-  const blob = new Blob([JSON.stringify(DB, null, 2)], {type:'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = `secretaria-backup-${todayISO()}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 500);
-  toast('Backup gerado.');
-}
-
-function importData(e){
-  const file = e.target.files[0];
-  if(!file) return;
-  if(!confirm('Importar dados deste arquivo? Os dados atuais serão SUBSTITUÍDOS.')){
-    e.target.value = ''; return;
-  }
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try{
-      const data = JSON.parse(ev.target.result);
-      // Sanitiza shape mínimo
-      DB = {
-        patients:     Array.isArray(data.patients)     ? data.patients     : [],
-        appointments: Array.isArray(data.appointments) ? data.appointments : [],
-        historico:    Array.isArray(data.historico)    ? data.historico    : [],
-        payments:     Array.isArray(data.payments)     ? data.payments     : [],
-        settings:     (data.settings && typeof data.settings === 'object') ? data.settings : { clinicName: 'Consultório', clinicLogo: null },
-        users:        Array.isArray(data.users)        ? data.users        : (DB.users || []),
-      };
-      saveDB();
-      applySettings();
-      fillSettingsForm();
-      renderPatients(); renderAgenda(); renderHistorico(); renderFinanceiro(); renderDashboard();
-      toast('Dados importados.');
-    } catch(err){
-      alert('Arquivo inválido. Não foi possível importar.');
-    } finally{
-      e.target.value = '';
-    }
-  };
-  reader.readAsText(file);
-}
-
-function confirmClearAll(){
-  if(!confirm('Tem certeza que deseja apagar TODOS os dados?\n\nEsta ação é irreversível. Considere exportar um backup antes.')) return;
-  if(!confirm('Confirmação final: apagar tudo mesmo?')) return;
-  DB = { patients:[], appointments:[], historico:[], payments:[], settings: DB.settings || { clinicName:'Consultório', clinicLogo:null }, users: DB.users || [] };
-  saveDB();
-  renderPatients(); renderAgenda(); renderHistorico(); renderFinanceiro(); renderDashboard();
-  toast('Todos os dados foram removidos.');
-}
+/* exportData / importData / confirmClearAll: as definições canônicas (que falam
+   com o Supabase) ficam mais abaixo (~linha 4900). As duplicatas antigas baseadas
+   em localStorage foram removidas para evitar comportamento ambíguo. */
 
 /* ==========================================================================
    MODAL HELPERS
@@ -4534,6 +4655,9 @@ async function doLogin(){
 /** Sai do sistema, volta à tela de login. */
 async function doLogout(){
   if(!confirm('Deseja realmente sair do sistema?')) return;
+  // Libera recursos para evitar timers/conexões pendentes após o logout
+  if(_patientPollTimer){ clearInterval(_patientPollTimer); _patientPollTimer = null; }
+  if(_realtimeChannel){ sb.removeChannel(_realtimeChannel); _realtimeChannel = null; }
   await sb.auth.signOut();
   currentUser = null;
   DB = { patients:[], appointments:[], historico:[], payments:[], settings:{ clinicName:'Consultório', clinicLogo:null } };
@@ -5183,9 +5307,34 @@ function renderPedidos(){
       </div>
       <p style="margin:.45rem 0 0;font-size:.9rem;">${escapeHTML(r.mensagem||'')}</p>
       ${r.preferencias ? `<p style="margin:.3rem 0 0;font-size:.82rem;color:var(--muted);">Preferência: ${escapeHTML(r.preferencias)}</p>` : ''}
-      ${r.patient?.telefone ? `<div style="margin-top:.5rem;"><a href="${whatsappURL(r.patient.telefone)}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;font-size:.78rem;">WhatsApp</a></div>` : ''}
+      <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap;">
+        ${r.appointment_id ? `<button class="btn btn-sm btn-primary" style="font-size:.78rem;" onclick="aceitarReagendar('${r.id}','${r.appointment_id}')">Aceitar e reagendar</button>` : ''}
+        ${!r.visto ? `<button class="btn btn-sm" style="font-size:.78rem;" onclick="resolverPedido('${r.id}')">Marcar resolvido</button>` : ''}
+        ${r.patient?.telefone ? `<a href="${whatsappURL(r.patient.telefone)}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;font-size:.78rem;">WhatsApp</a>` : ''}
+      </div>
     </div>`;
   }).join('');
+}
+
+/** Marca um pedido de reagendamento como resolvido (visto). */
+async function resolverPedido(id){
+  try{
+    const { error } = await sb.from('reschedule_requests').update({ visto: true }).eq('id', id);
+    if(error) throw error;
+    const r = pedidosData.find(x => x.id === id); if(r) r.visto = true;
+    renderPedidos(); updatePedidosBadge();
+    toast('Pedido marcado como resolvido.');
+  } catch(err){ console.error(err); toast('Erro: ' + (err.message || err)); }
+}
+
+/** Resolve o pedido e abre a consulta vinculada para escolher novo horário. */
+async function aceitarReagendar(reqId, apptId){
+  await resolverPedido(reqId);
+  if(apptId && (DB.appointments||[]).some(a => a.id === apptId)){
+    openAppointmentModal(apptId);
+  } else {
+    toast('Pedido sem consulta vinculada. Reagende pela Agenda.');
+  }
 }
 
 function renderSlots(){
