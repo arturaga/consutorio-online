@@ -2538,7 +2538,7 @@ function renderDashboard(){
   const atrasados = DB.payments.filter(p => p.status === 'atrasado');
   const pedidosNovos = (typeof pedidosData !== 'undefined' && pedidosData ? pedidosData : []).filter(r => !r.visto).length;
   const alerts = [];
-  if(atrasados.length) alerts.push(`<button class="btn btn-sm" style="background:var(--danger-soft);color:var(--danger);border:none;" onclick="show('financeiro')">💰 ${atrasados.length} pagamento(s) atrasado(s) · ${fmtBRL(atrasados.reduce((s,p)=>s+Number(p.valor||0),0))}</button>`);
+  if(atrasados.length) alerts.push(`<button class="btn btn-sm" style="background:var(--danger-soft);color:var(--danger);border:none;" onclick="lembrarAtrasados()">💰 ${atrasados.length} pagamento(s) atrasado(s) · ${fmtBRL(atrasados.reduce((s,p)=>s+Number(p.valor||0),0))}</button>`);
   if(pedidosNovos) alerts.push(`<button class="btn btn-sm" style="background:var(--accent-soft);color:var(--accent);border:none;" onclick="show('pedidos')">🔔 ${pedidosNovos} novo(s) pedido(s)</button>`);
   if(today.length) alerts.push(`<button class="btn btn-sm" style="background:var(--info-soft);color:var(--info);border:none;" onclick="show('agenda')">📅 ${today.length} consulta(s) hoje</button>`);
   let alertBar = document.getElementById('dash-alerts');
@@ -3984,6 +3984,23 @@ function renderFinanceiro(){
     ${tile('Consultas pendentes', qtdPend, '', 'Em aberto neste filtro', userIcon(), 'info')}
   `;
 
+  // Botão "Lembrar atrasados" (considera TODOS os atrasados, não só o filtro atual)
+  const globalAtras = DB.payments.filter(p => p.status === 'atrasado');
+  let lembrarBox = document.getElementById('fin-lembrar-atrasados');
+  if(!lembrarBox){
+    lembrarBox = document.createElement('div');
+    lembrarBox.id = 'fin-lembrar-atrasados';
+    lembrarBox.style.cssText = 'margin:.4rem 0 1rem;';
+    const tbl = $('#fin-table');
+    if(tbl && tbl.parentNode) tbl.parentNode.insertBefore(lembrarBox, tbl);
+  }
+  if(globalAtras.length){
+    lembrarBox.innerHTML = `<button class="btn btn-sm" style="background:#25D366;color:#fff;border:none;" onclick="lembrarAtrasados()">📲 Lembrar atrasados (${globalAtras.length})</button>`;
+    lembrarBox.style.display = 'block';
+  } else {
+    lembrarBox.style.display = 'none';
+  }
+
   const tbody = $('#fin-table tbody');
   if(!list.length){
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty">Nenhum pagamento encontrado neste filtro.</div></td></tr>`;
@@ -4032,6 +4049,49 @@ function cobrarWhatsApp(paymentId){
   const msg = `Olá, ${pa.nome}! 👋\n\nPassando para lembrar que o pagamento de ${valor}${data ? ' referente a ' + data : ''} ${status}.\n\nQualquer dúvida, é só falar! 😊`;
   const tel = pa.telefone.replace(/\D/g,'');
   window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+/** Cobra TODOS os atrasados de um paciente numa única mensagem de WhatsApp. */
+function cobrarPacienteWhatsApp(patientId){
+  const pa = getPatient(patientId);
+  if(!pa || !pa.telefone){ toast('Paciente sem telefone cadastrado.'); return; }
+  const itens = DB.payments
+    .filter(p => p.pacienteId === patientId && p.status === 'atrasado')
+    .sort((a,b) => (a.data||'').localeCompare(b.data||''));
+  if(!itens.length){ toast('Sem pagamentos atrasados para este paciente.'); return; }
+  const total  = itens.reduce((s,p) => s + Number(p.valor||0), 0);
+  const linhas = itens.map(p => `• ${fmtDate(p.data)} — ${fmtBRL(p.valor)}`).join('\n');
+  const msg = `Olá, ${pa.nome}! 👋\n\nPassando para lembrar, com carinho, sobre pagamento(s) em aberto:\n${linhas}\n\nTotal: ${fmtBRL(total)}\n\nSe já tiver pago, é só desconsiderar 🙏. Qualquer dúvida, estou à disposição! 😊`;
+  const url = whatsappURL(pa.telefone);
+  if(!url){ toast('Telefone inválido.'); return; }
+  window.open(`${url}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+/** Modal com os pagamentos atrasados agrupados por paciente (envio em 1 toque). */
+function lembrarAtrasados(){
+  const atrasados = DB.payments.filter(p => p.status === 'atrasado');
+  if(!atrasados.length){ toast('Nenhum pagamento atrasado. 🎉'); return; }
+  const porPaciente = {};
+  atrasados.forEach(p => { (porPaciente[p.pacienteId] = porPaciente[p.pacienteId] || []).push(p); });
+  const linhas = Object.keys(porPaciente).map(pid => {
+    const pa = getPatient(pid);
+    const itens = porPaciente[pid];
+    const total = itens.reduce((s,p) => s + Number(p.valor||0), 0);
+    const nome = pa ? escapeHTML(pa.nome) : '—';
+    const acao = (pa && pa.telefone)
+      ? `<button class="btn btn-sm" style="background:#25D366;color:#fff;border:none;" onclick="cobrarPacienteWhatsApp('${pid}')">📲 Enviar</button>`
+      : `<span class="muted" style="font-size:.8rem;">sem telefone</span>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.55rem 0;border-bottom:1px solid var(--border);">
+        <div><strong>${nome}</strong> <span class="muted" style="font-size:.82rem;">· ${itens.length} em atraso · ${fmtBRL(total)}</span></div>
+        ${acao}
+      </div>`;
+  }).join('');
+  const totalGeral = atrasados.reduce((s,p) => s + Number(p.valor||0), 0);
+  setModal({
+    title: 'Lembrar pagamentos atrasados',
+    body: `<p class="muted" style="margin-bottom:.6rem;font-size:.88rem;">${atrasados.length} pagamento(s) em atraso · total ${fmtBRL(totalGeral)}. Você confere a mensagem no WhatsApp antes de enviar.</p>${linhas}`,
+    foot: `<button class="btn" onclick="closeModal()">Fechar</button>`
+  });
 }
 
 function clearFinanceFilters(){
@@ -5160,15 +5220,23 @@ function renderPatientArea(d){
     hEl.innerHTML = '<p style="color:var(--muted);text-align:center;padding:1rem 0;">Sem histórico ainda</p>';
   }
 
-  // Pagamentos pendentes
-  const pagamentos = (d.pagamentos || []).filter(pg => pg.status === 'pendente');
+  // Pagamentos em aberto (pendentes + atrasados)
+  const pagamentos = (d.pagamentos || []).filter(pg => pg.status === 'pendente' || pg.status === 'atrasado');
   const pgCard = document.getElementById('pa-card-pagamentos');
   if(pagamentos.length){
-    document.getElementById('pa-pagamentos').innerHTML = pagamentos.map(pg => `
+    const totalAberto = pagamentos.reduce((s,pg) => s + Number(pg.valor||0), 0);
+    document.getElementById('pa-pagamentos').innerHTML = pagamentos.map(pg => {
+      const atras = pg.status === 'atrasado';
+      return `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--border);">
-        <span style="font-size:.9rem;">${fmtDateBR(pg.data)}</span>
+        <span style="font-size:.9rem;">${fmtDateBR(pg.data)}${atras ? ` <span style='background:#F4DEDE;color:#8a3a3a;font-size:.7rem;padding:.05rem .4rem;border-radius:999px;margin-left:.3rem;'>Em atraso</span>` : ''}</span>
         <strong style="color:#E76F51;">${pg.valor ? 'R$ '+Number(pg.valor).toFixed(2).replace('.',',') : '—'}</strong>
-      </div>`).join('');
+      </div>`;
+    }).join('') + `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:.55rem 0;margin-top:.15rem;">
+        <span style="font-size:.9rem;font-weight:600;">Total em aberto</span>
+        <strong style="color:#E76F51;">${'R$ '+Number(totalAberto).toFixed(2).replace('.',',')}</strong>
+      </div>`;
     pgCard.style.display = 'block';
   } else {
     pgCard.style.display = 'none';
