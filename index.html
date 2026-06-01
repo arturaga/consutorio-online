@@ -2587,7 +2587,7 @@ function renderMiniAgenda(container, list, emptyMsg){
       <div class="agenda-day ${soon ? 'soon':''}">
         <div class="time">${a.horario || '--:--'}</div>
         <div class="who">
-          <strong>${p ? p.nome : 'Paciente removido'}</strong>
+          <strong>${p ? escapeHTML(p.nome) : 'Paciente removido'}</strong>
           <small>${fmtDate(a.data)} · ${a.tipo === 'online' ? '💻 Online' : '🏛 Presencial'}</small>
         </div>
         ${statusBadge(a.status, 'consulta')}
@@ -2693,6 +2693,12 @@ function escapeHTML(str){
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+/** Devolve a URL da imagem só se for data:image/ ou https:// (e escapada p/ atributo); senão vazio — bloqueia HTML/JS injetado em src. */
+function safeImg(v){
+  v = (v == null) ? '' : String(v);
+  return /^(data:image\/|https:\/\/)/i.test(v) ? escapeHTML(v) : '';
+}
+
 /** Atualiza todos os <select> de pacientes da app. */
 function refreshPatientSelects(){
   const opts = '<option value="">— Escolha um paciente —</option>' +
@@ -2729,11 +2735,11 @@ async function openPatientModal(id){
           <label>Foto do paciente</label>
           <div class="photo-picker">
             <div class="preview" id="pat-photo-preview" style="border-radius: 50%; width:72px; height:72px;">
-              ${p.foto ? `<img src="${p.foto}" alt="">` : `<span style="color:var(--text-faint)">${p.nome ? escapeHTML(initialsOf(p.nome)) : '?'}</span>`}
+              ${p.foto ? `<img src="${safeImg(p.foto)}" alt="">` : `<span style="color:var(--text-faint)">${p.nome ? escapeHTML(initialsOf(p.nome)) : '?'}</span>`}
             </div>
             <div class="actions">
               <input type="file" id="pat-photo-input" accept="image/*" style="display:none" onchange="onPatientPhotoSelect(event)">
-              <input type="hidden" name="foto" id="pat-photo-value" value="${p.foto || ''}">
+              <input type="hidden" name="foto" id="pat-photo-value" value="${escapeHTML(p.foto || '')}">
               <button type="button" class="btn btn-sm" onclick="document.getElementById('pat-photo-input').click()">
                 📷 Escolher foto
               </button>
@@ -4247,7 +4253,7 @@ function initialsOf(nome){
 function avatarHTML(patient, size = ''){
   const cls = size ? `avatar ${size}` : 'avatar';
   if(patient && patient.foto){
-    return `<div class="${cls}"><img src="${patient.foto}" alt=""></div>`;
+    return `<div class="${cls}"><img src="${safeImg(patient.foto)}" alt=""></div>`;
   }
   return `<div class="${cls}">${escapeHTML(initialsOf(patient && patient.nome))}</div>`;
 }
@@ -4289,7 +4295,7 @@ async function onPatientPhotoSelect(e){
   try{
     const data = await readImageAsBase64(file, 400);
     $('#pat-photo-value').value = data;
-    $('#pat-photo-preview').innerHTML = `<img src="${data}" alt="">`;
+    $('#pat-photo-preview').innerHTML = `<img src="${safeImg(data)}" alt="">`;
   } catch(err){
     toast('Não foi possível carregar a imagem.');
   }
@@ -4315,7 +4321,7 @@ function applySettings(){
   const logoEl = $('#brand-logo');
   if(logo){
     logoEl.classList.add('has-img');
-    logoEl.innerHTML = `<img src="${logo}" alt="">`;
+    logoEl.innerHTML = `<img src="${safeImg(logo)}" alt="">`;
   } else {
     logoEl.classList.remove('has-img');
     logoEl.innerHTML = 'Ψ';
@@ -4335,7 +4341,7 @@ function fillSettingsForm(){
 function renderLogoPreview(){
   const preview = $('#set-logo-preview');
   if(pendingLogo){
-    preview.innerHTML = `<img src="${pendingLogo}" alt="">`;
+    preview.innerHTML = `<img src="${safeImg(pendingLogo)}" alt="">`;
   } else {
     preview.innerHTML = `<span style="font-size: 1.5rem; font-family: var(--font-display);">Ψ</span>`;
   }
@@ -4416,7 +4422,7 @@ function applyAuthBranding(){
     if(!el) return;
     if(logo){
       el.classList.add('has-img');
-      el.innerHTML = `<img src="${logo}" alt="">`;
+      el.innerHTML = `<img src="${safeImg(logo)}" alt="">`;
     } else {
       el.classList.remove('has-img');
       el.innerHTML = 'Ψ';
@@ -4468,7 +4474,7 @@ async function initPublicRegister(token){
     const logoEl = document.getElementById('register-brand-logo');
     if(info.clinic_logo){
       logoEl.classList.add('has-img');
-      logoEl.innerHTML = `<img src="${info.clinic_logo}" alt="">`;
+      logoEl.innerHTML = `<img src="${safeImg(info.clinic_logo)}" alt="">`;
     }
     document.title = `Cadastro · ${info.clinic_name || 'Consultório'}`;
     // Aplica tema do consultório
@@ -5183,7 +5189,7 @@ function renderPatientArea(d){
   document.getElementById('pa-clinic-name').textContent = settings.nome_consultorio || 'Consultório';
   document.getElementById('pa-patient-name').textContent = p.nome || '';
   const logoEl = document.getElementById('pa-logo');
-  if(settings.logo_url){ logoEl.innerHTML = `<img src="${settings.logo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`; }
+  if(settings.logo_url){ logoEl.innerHTML = `<img src="${safeImg(settings.logo_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`; }
 
   // Aplica tema do consultório
   if(settings.theme_primary) applyTheme(settings.theme_primary, settings.theme_bg || '#F5F1EA', settings.theme_accent || '#A89BB9');
